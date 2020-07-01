@@ -1,4 +1,4 @@
-version: '2'
+version: '3'
 services:
    domoticz:
       build: .
@@ -11,8 +11,14 @@ services:
       privileged: true
       volumes:
         - /dev/bus/usb:/dev/bus/usb
+        - /dockerdata/domoticz:/config
       network_mode: "host"
       environment:
         - TZ=Europe/Amsterdam
       restart: always
+      logging:
+        driver: "json-file"
+        options:
+           max-file: "5"
+           max-size: "10m"
 
