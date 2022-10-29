@@ -1,18 +1,22 @@
-version: '3'
+version: '3.7'
+
 services:
    domoticz:
-      build: .
       container_name: domoticz
-      image: tgiesela/domoticz:0.1
+      image: domoticz/domoticz:latest
       hostname: domoticz
       domainname: thuis.local
+      depends_on:
+        - zwave-js-ui
       ports:
-         - "8080:8080"   # web gui
-      privileged: true
+         - '8080:8080'   # web gui
+         - '8443:443'
       volumes:
-        - /dev/bus/usb:/dev/bus/usb
-        - /dockerdata/domoticz:/config
-      network_mode: "host"
+        - /dockerdata/domoticz-new:/opt/domoticz/userdata
+      devices:
+        - /dev/serial/by-id/usb-RFXCOM_RFXtrx433_A1Z6SHGW-if00-port0:/dev/ttyACM0
+      networks:
+        - zwave
       environment:
         - TZ=Europe/Amsterdam
       restart: always
@@ -21,4 +25,49 @@ services:
         options:
            max-file: "5"
            max-size: "10m"
+  
+   zwave-js-ui:
+      container_name: zwave-js-ui
+      image: zwavejs/zwave-js-ui:8.2.1
+      depends_on:
+        - mosquitto
+      restart: always
+      tty: true
+      stop_signal: SIGINT
+      environment:
+       - SESSION_SECRET=mysupersecretkey
+       - ZWAVEJS_EXTERNAL_CONFIG=/usr/src/app/store/.config-db
+       # Uncomment if you want logs time and dates to match your timezone instead of UTC
+       # Available at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+       - TZ=Europe/Amsterdam
+      networks:
+       - zwave
+      devices:
+      # Do not use /dev/ttyUSBX serial devices, as those mappings can change over time.
+      # Instead, use the /dev/serial/by-id/X serial device for your Z-Wave stick.
+       - /dev/serial/by-id/usb-0658_0200-if00:/dev/ttyACM0
+      volumes:
+       - /dockerdata/zwave-config:/usr/src/app/store
+      ports:
+       - '8091:8091' # port for web interface
+       - '3000:3000' # port for Z-Wave JS websocket server
 
+   mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto
+    restart: always
+    tty: true
+    networks: 
+      - zwave
+    environment:
+      - TZ=Europe/Amsterdam
+    volumes:
+      - /dockerdata/mosquitto:/mosquitto
+    ports:
+      - 1883:1883
+      - 9001:9001
+
+
+networks:
+  zwave:
+    
